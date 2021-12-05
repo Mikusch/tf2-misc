@@ -1,5 +1,6 @@
 #include <sourcemod>
 #include <sdktools>
+#include <tf2items>
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -33,6 +34,8 @@ static char g_Models[][] =
 	{ "models/player/items/taunts/yeti/yeti.mdl" },
 };
 
+static Handle g_SDKCallEquipWearable;
+
 public Plugin myinfo = 
 {
 	name = "Player Model Randomizer", 
@@ -45,18 +48,53 @@ public Plugin myinfo =
 public void OnPluginStart()
 {
 	HookEvent("post_inventory_application", Event_PostInventoryApplication);
+	
+	GameData gamedata = new GameData("playermodelrandomizer");
+	if (gamedata)
+	{
+		StartPrepSDKCall(SDKCall_Player);
+		if (PrepSDKCall_SetFromConf(gamedata, SDKConf_Virtual, "CTFPlayer::EquipWearable"))
+		{
+			PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
+			g_SDKCallEquipWearable = EndPrepSDKCall();
+		}
+		else
+		{
+			SetFailState("Failed to create SDK call: CTFPlayer::EquipWearable");
+		}
+		
+		delete gamedata;
+	}
+	else
+	{
+		SetFailState("Failed to read playermodelrandomizer gamedata");
+	}
 }
 
 public void Event_PostInventoryApplication(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	
-	// Grab a random model
 	char model[PLATFORM_MAX_PATH];
 	strcopy(model, sizeof(model), g_Models[GetRandomInt(0, sizeof(g_Models) - 1)]);
 	
-	// Set the model
 	SetVariantString(model);
 	AcceptEntityInput(client, "SetCustomModel");
 	SetEntProp(client, Prop_Send, "m_bUseClassAnimations", 1);
+	
+	Handle item = TF2Items_CreateItem(OVERRIDE_ALL | FORCE_GENERATION);
+	TF2Items_SetClassname(item, "tf_wearable");
+	TF2Items_SetItemIndex(item, 8938);
+	TF2Items_SetQuality(item, 6);
+	TF2Items_SetLevel(item, 1);
+	
+	int wearable = TF2Items_GiveNamedItem(client, item);
+	
+	delete item;
+	
+	SDKCall(g_SDKCallEquipWearable, client, wearable);
+	
+	SetEntProp(client, Prop_Send, "m_nRenderFX", 6);
+	SetEntProp(wearable, Prop_Data, "m_nModelIndexOverrides", PrecacheModel(model));
+	SetEntProp(wearable, Prop_Send, "m_bValidatedAttachedEntity", 1);
 }
