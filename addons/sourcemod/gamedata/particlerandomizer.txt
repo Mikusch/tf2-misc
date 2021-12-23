@@ -1,0 +1,30 @@
+"Games"
+{
+	"tf"
+	{
+		"Signatures"
+		{
+			"GetParticleSystemIndex"
+			{
+				"linux"		"@_Z22GetParticleSystemIndexPKc"
+			}
+		}
+		"Functions"
+		{
+			"GetParticleSystemIndex"
+			{
+				"signature"	"GetParticleSystemIndex"
+				"callconv"	"thiscall"
+				"return"	"int"
+				"this"		"ignore"
+				"arguments"
+				{
+					"pParticleSystemName"
+					{
+						"type"	"stringptr"
+					}
+				}
+			}
+		}
+	}
+}
