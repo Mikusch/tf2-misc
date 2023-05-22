@@ -132,27 +132,26 @@ void CreateSkull()
 		
 		if (DispatchSpawn(skull))
 		{
+			g_skullTarget = -1;
+			g_skull = EntIndexToEntRef(skull);
+			
 			// create spectator point
 			int observer = CreateEntityByName("info_observer_point");
 			if (IsValidEntity(observer))
 			{
 				SetVariantString("!activator");
-				AcceptEntityInput(observer, "SetParent", skull);
-				
-				float origin[3], angles[3];
-				GetEntPropVector(skull, Prop_Data, "m_vecAbsOrigin", origin);
-				GetEntPropVector(skull, Prop_Data, "m_angAbsRotation", angles);
-				
-				DispatchKeyValueVector(observer, "origin", origin);
-				DispatchKeyValueVector(observer, "angles", angles);
-				
-				DispatchSpawn(observer);
+				if (AcceptEntityInput(observer, "SetParent", skull))
+				{
+					float origin[3], angles[3];
+					GetEntPropVector(skull, Prop_Data, "m_vecAbsOrigin", origin);
+					GetEntPropVector(skull, Prop_Data, "m_angAbsRotation", angles);
+					
+					DispatchKeyValueVector(observer, "origin", origin);
+					DispatchKeyValueVector(observer, "angles", angles);
+				}
 			}
 			
 			EmitSoundToAll(")ambient/halloween/bombinomicon_loop.wav", skull, SNDCHAN_AUTO);
-			
-			g_skullTarget = -1;
-			g_skull = EntIndexToEntRef(skull);
 		}
 	}
 }
