@@ -99,25 +99,28 @@ static Action CommandListener_JoinTeam(int client, const char[] command, int arg
 {
 	bool bSpectate = false;
 	
-	if (StrEqual(command, "jointeam") && argc >= 1)
+	if (client == g_skullTarget)
 	{
-		char teamName[16];
-		GetCmdArg(1, teamName, sizeof(teamName));
-		
-		if (StrEqual(teamName, "spectate") || StrEqual(teamName, "spectatearena"))
+		if (StrEqual(command, "jointeam") && argc >= 1)
+		{
+			char teamName[16];
+			GetCmdArg(1, teamName, sizeof(teamName));
+			
+			if (StrEqual(teamName, "spectate") || StrEqual(teamName, "spectatearena"))
+			{
+				bSpectate = true;
+			}
+		}
+		else if (StrEqual(command, "spectate"))
 		{
 			bSpectate = true;
 		}
-	}
-	else if (StrEqual(command, "spectate"))
-	{
-		bSpectate = true;
-	}
-	
-	if (bSpectate)
-	{
-		PrintCenterText(client, "You may not spectate now, for you are the one being spectated.");
-		return Plugin_Handled;
+		
+		if (bSpectate)
+		{
+			PrintCenterText(client, "You may not spectate now, for you are the one being spectated.");
+			return Plugin_Handled;
+		}
 	}
 	
 	return Plugin_Continue;
