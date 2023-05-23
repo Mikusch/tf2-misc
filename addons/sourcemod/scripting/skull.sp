@@ -7,14 +7,23 @@
 #include <tf2_stocks>
 #include <cbasenpc>
 
-ConVar sm_skull_speed;
+enum struct SkullData
+{
+	int entindex;
+	int m_target;
+}
 
-int g_skull = INVALID_ENT_REFERENCE;
-int g_skullTarget = -1;
+ArrayList g_skulls;
+
+ConVar sm_skull_speed;
+ConVar sm_skull_count;
 
 public void OnPluginStart()
 {
+	g_skulls = new ArrayList(sizeof(SkullData));
+	
 	sm_skull_speed = CreateConVar("sm_skull_speed", "100", "Speed of the skull.");
+	sm_skull_count = CreateConVar("sm_skull_count", "1", "Amount of skulls to spawn.");
 	
 	HookEvent("teamplay_round_start", EventHook_TeamPlayRoundStart);
 	HookEvent("player_death", EventHook_PlayerDeath);
@@ -27,35 +36,44 @@ public void OnPluginStart()
 
 public void OnMapStart()
 {
-	g_skull = INVALID_ENT_REFERENCE;
-	g_skullTarget = -1;
+	g_skulls.Clear();
 	
 	PrecacheSound(")ambient/halloween/bombinomicon_loop.wav");
 }
 
 public void OnGameFrame()
 {
-	if (IsValidEntity(g_skull))
+	for (int i = 0; i < g_skulls.Length; i++)
 	{
-		SkullThink(g_skull);
+		SkullData data;
+		if (g_skulls.GetArray(i, data))
+		{
+			if (IsValidEntity(data.entindex))
+			{
+				SkullThink(i, data);
+			}
+		}
 	}
 }
 
 public void OnEntityDestroyed(int entity)
 {
-	if (entity == EntRefToEntIndex(g_skull))
+	int index = g_skulls.FindValue(entity, SkullData::entindex);
+	if (index != -1)
 	{
 		StopSound(entity, SNDCHAN_STATIC, ")ambient/halloween/bombinomicon_loop.wav");
+		g_skulls.Erase(index);
 	}
 }
 
 public void OnClientDisconnect(int client)
 {
 	// our target left, nothing we can do but to retarget
-	if (client == g_skullTarget)
+	int index = g_skulls.FindValue(client, SkullData::m_target);
+	if (index != -1)
 	{
 		PrintToChatAll("%N has left the game. The skull is displeased.", client);
-		SelectRandomTarget();
+		SelectRandomTarget(index);
 	}
 }
 
@@ -64,7 +82,10 @@ static void EventHook_TeamPlayRoundStart(Event event, const char[] name, bool do
 	if (GameRules_GetProp("m_bInWaitingForPlayers") && !GameRules_GetProp("m_bPlayingMannVsMachine"))
 		return;
 	
-	CreateSkull();
+	for (int i = 0; i < sm_skull_count.IntValue; i++)
+	{
+		CreateSkull();
+	}
 }
 
 static void EventHook_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
@@ -75,18 +96,22 @@ static void EventHook_PlayerDeath(Event event, const char[] name, bool dontBroad
 		int client = GetClientOfUserId(event.GetInt("userid"));
 		int deathflags = event.GetInt("death_flags");
 		
-		if (!(deathflags & TF_DEATHFLAG_DEADRINGER) && client == g_skullTarget)
+		if (g_skulls.FindValue(client, SkullData::m_target) != -1)
 		{
-			PrintToChatAll("%N could not take the pressure anymore.", client);
-			
-			SelectRandomTarget();
+			int index = g_skulls.FindValue(client, SkullData::m_target);
+			if (!(deathflags & TF_DEATHFLAG_DEADRINGER) && index != -1)
+			{
+				PrintToChatAll("%N could not take the pressure anymore.", client);
+				
+				SelectRandomTarget(index);
+			}
 		}
 	}
 }
 
 static Action CommandListener_Suicide(int client, const char[] command, int argc)
 {
-	if (client == g_skullTarget)
+	if (g_skulls.FindValue(client, SkullData::m_target) != -1)
 	{
 		PrintCenterText(client, "You are being watched. You cannot take the easy way out.");
 		return Plugin_Handled;
@@ -99,28 +124,41 @@ static Action CommandListener_JoinTeam(int client, const char[] command, int arg
 {
 	bool bSpectate = false;
 	
-	if (client == g_skullTarget)
+	if (g_skulls.FindValue(client, SkullData::m_target) != -1)
 	{
 		if (StrEqual(command, "jointeam") && argc >= 1)
 		{
-			char teamName[16];
-			GetCmdArg(1, teamName, sizeof(teamName));
-			
-			if (StrEqual(teamName, "spectate") || StrEqual(teamName, "spectatearena"))
+			if (StrEqual(command, "jointeam") && argc >= 1)
+			{
+				char teamName[16];
+				GetCmdArg(1, teamName, sizeof(teamName));
+				
+				if (StrEqual(teamName, "spectate") || StrEqual(teamName, "spectatearena"))
+				{
+					bSpectate = true;
+				}
+			}
+			else if (StrEqual(command, "spectate"))
 			{
 				bSpectate = true;
+			}
+			
+			if (bSpectate)
+			{
+				PrintCenterText(client, "You may not spectate now, for you are the one being spectated.");
+				return Plugin_Handled;
 			}
 		}
 		else if (StrEqual(command, "spectate"))
 		{
 			bSpectate = true;
 		}
-		
-		if (bSpectate)
-		{
-			PrintCenterText(client, "You may not spectate now, for you are the one being spectated.");
-			return Plugin_Handled;
-		}
+	}
+	
+	if (bSpectate)
+	{
+		PrintCenterText(client, "You may not spectate now, for you are the one being spectated.");
+		return Plugin_Handled;
 	}
 	
 	return Plugin_Continue;
@@ -128,16 +166,21 @@ static Action CommandListener_JoinTeam(int client, const char[] command, int arg
 
 void CreateSkull()
 {
+	SkullData data;
+	
 	int skull = CreateEntityByName("prop_dynamic");
 	if (IsValidEntity(skull))
 	{
+		float skullOrigin[3];
+		skullOrigin[0] = GetRandomFloat(-32768.0, 32768.0);
+		skullOrigin[1] = GetRandomFloat(-32768.0, 32768.0);
+		skullOrigin[2] = GetRandomFloat(-32768.0, 32768.0);
+		
+		DispatchKeyValueVector(skull, "origin", skullOrigin);
 		DispatchKeyValue(skull, "model", "models/props_mvm/mvm_human_skull.mdl");
 		
 		if (DispatchSpawn(skull))
 		{
-			g_skullTarget = -1;
-			g_skull = EntIndexToEntRef(skull);
-			
 			// create spectator point
 			int observer = CreateEntityByName("info_observer_point");
 			if (IsValidEntity(observer))
@@ -155,13 +198,17 @@ void CreateSkull()
 			}
 			
 			EmitSoundToAll(")ambient/halloween/bombinomicon_loop.wav", skull, SNDCHAN_AUTO);
+			
+			data.entindex = skull;
+			data.m_target = -1;
+			g_skulls.PushArray(data);
 		}
 	}
 }
 
-bool SelectRandomTarget()
+bool SelectRandomTarget(int index)
 {
-	g_skullTarget = -1;
+	g_skulls.Set(index, -1, SkullData::m_target);
 	
 	int[] clients = new int[MaxClients];
 	int total = 0;
@@ -171,7 +218,7 @@ bool SelectRandomTarget()
 		if (!IsValidSkullTarget(client))
 			continue;
 		
-		if (g_skullTarget == client)
+		if (g_skulls.FindValue(client, SkullData::m_target) != -1)
 			continue;
 		
 		clients[total++] = client;
@@ -179,7 +226,7 @@ bool SelectRandomTarget()
 	
 	if (total)
 	{
-		g_skullTarget = clients[GetRandomInt(0, total - 1)];
+		g_skulls.Set(index, clients[GetRandomInt(0, total - 1)], SkullData::m_target);
 		
 		PrintToChatAll("Someone is being watched...");
 		
@@ -189,15 +236,15 @@ bool SelectRandomTarget()
 	return false;
 }
 
-void SkullThink(int skull)
+void SkullThink(int index, SkullData data)
 {
-	if (IsValidEntity(g_skullTarget) && IsValidSkullTarget(g_skullTarget))
+	if (IsValidEntity(data.m_target) && IsValidSkullTarget(data.m_target))
 	{
 		float targetOrigin[3];
-		CBaseEntity(g_skullTarget).WorldSpaceCenter(targetOrigin);
+		CBaseEntity(data.m_target).WorldSpaceCenter(targetOrigin);
 		
 		float skullOrigin[3];
-		GetEntPropVector(skull, Prop_Data, "m_vecAbsOrigin", skullOrigin);
+		GetEntPropVector(data.entindex, Prop_Data, "m_vecAbsOrigin", skullOrigin);
 		
 		float direction[3];
 		SubtractVectors(targetOrigin, skullOrigin, direction);
@@ -206,7 +253,7 @@ void SkullThink(int skull)
 		float angles[3];
 		GetVectorAngles(direction, angles);
 		
-		DispatchKeyValueVector(skull, "angles", angles);
+		DispatchKeyValueVector(data.entindex, "angles", angles);
 		
 		// outside the world? speed it up.
 		float speed = TR_PointOutsideWorld(skullOrigin) ? sm_skull_speed.FloatValue * 10.0 : sm_skull_speed.FloatValue;
@@ -214,23 +261,23 @@ void SkullThink(int skull)
 		
 		float newSkullOrigin[3];
 		AddVectors(skullOrigin, direction, newSkullOrigin);
-		DispatchKeyValueVector(skull, "origin", newSkullOrigin);
+		DispatchKeyValueVector(data.entindex, "origin", newSkullOrigin);
 		
 		// poor man's Touch()
 		TR_TraceRay(skullOrigin, skullOrigin, MASK_SOLID, RayType_EndPoint);
-		if (TR_DidHit() && TR_GetEntityIndex() == g_skullTarget)
+		if (TR_DidHit() && TR_GetEntityIndex() == data.m_target)
 		{
-			PrintToChatAll("%N fell victim to the skull...", g_skullTarget);
-			CrashClient(g_skullTarget);
+			PrintToChatAll("%N fell victim to the skull...", data.m_target);
+			CrashClient(data.m_target);
 			
-			SelectRandomTarget();
+			SelectRandomTarget(index);
 		}
 	}
 	
 	// if the round is running and we do not have a target, look for one periodically
-	if (!IsValidEntity(g_skullTarget) && GameRules_GetRoundState() >= RoundState_RoundRunning)
+	if (!IsValidEntity(data.m_target) && GameRules_GetRoundState() >= RoundState_RoundRunning)
 	{
-		SelectRandomTarget();
+		SelectRandomTarget(index);
 	}
 }
 
@@ -253,5 +300,5 @@ bool IsValidSkullTarget(int client)
 
 void CrashClient(int client)
 {
-	RemoveEntity(client);
+	//RemoveEntity(client);
 }
