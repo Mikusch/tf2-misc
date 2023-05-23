@@ -113,7 +113,7 @@ static void EventHook_PlayerDeath(Event event, const char[] name, bool dontBroad
 
 static Action CommandListener_Suicide(int client, const char[] command, int argc)
 {
-	if (GameRules_GetProp("m_nGameType") == 4 && g_skulls.FindValue(client, SkullData::m_target) != -1)
+	if (g_skulls.FindValue(client, SkullData::m_target) != -1)
 	{
 		PrintCenterText(client, "You are being watched. You cannot take the easy way out.");
 		return Plugin_Handled;
@@ -173,13 +173,15 @@ void CreateSkull()
 	int skull = CreateEntityByName("prop_dynamic");
 	if (IsValidEntity(skull))
 	{
-		float skullOrigin[3];
-		skullOrigin[0] = GetRandomFloat(-32768.0, 32768.0);
-		skullOrigin[1] = GetRandomFloat(-32768.0, 32768.0);
-		skullOrigin[2] = GetRandomFloat(-32768.0, 32768.0);
-		
-		DispatchKeyValueVector(skull, "origin", skullOrigin);
 		DispatchKeyValue(skull, "model", "models/props_mvm/mvm_human_skull.mdl");
+		
+		float origin[3];
+		origin[0] = GetRandomFloat(-32768.0, 32768.0); origin[1] = GetRandomFloat(-32768.0, 32768.0); origin[2] = GetRandomFloat(-32768.0, 32768.0);
+		DispatchKeyValueVector(skull, "origin", origin);
+		
+		float angles[3];
+		angles[0] = GetRandomFloat(0.0, 360.0); angles[1] = GetRandomFloat(0.0, 360.0); angles[2] = GetRandomFloat(0.0, 360.0);
+		DispatchKeyValueVector(skull, "angles", angles);
 		
 		if (DispatchSpawn(skull))
 		{
@@ -190,10 +192,6 @@ void CreateSkull()
 				SetVariantString("!activator");
 				if (AcceptEntityInput(observer, "SetParent", skull))
 				{
-					float origin[3], angles[3];
-					GetEntPropVector(skull, Prop_Data, "m_vecAbsOrigin", origin);
-					GetEntPropVector(skull, Prop_Data, "m_angAbsRotation", angles);
-					
 					DispatchKeyValueVector(observer, "origin", origin);
 					DispatchKeyValueVector(observer, "angles", angles);
 				}
