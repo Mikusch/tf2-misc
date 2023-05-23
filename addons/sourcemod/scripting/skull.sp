@@ -17,13 +17,15 @@ ArrayList g_skulls;
 
 ConVar sm_skull_speed;
 ConVar sm_skull_count;
+ConVar sm_skull_delete_self_on_contact;
 
 public void OnPluginStart()
 {
 	g_skulls = new ArrayList(sizeof(SkullData));
 	
 	sm_skull_speed = CreateConVar("sm_skull_speed", "100", "Speed of the skull.");
-	sm_skull_count = CreateConVar("sm_skull_count", "1", "Amount of skulls to spawn.");
+	sm_skull_count = CreateConVar("sm_skull_count", "1", "Amount of skulls to spawn on round start.");
+	sm_skull_delete_self_on_contact = CreateConVar("sm_skull_delete_self_on_contact", "0", "Whether the skull should delete itself on contact.");
 	
 	HookEvent("teamplay_round_start", EventHook_TeamPlayRoundStart);
 	HookEvent("player_death", EventHook_PlayerDeath);
@@ -111,7 +113,7 @@ static void EventHook_PlayerDeath(Event event, const char[] name, bool dontBroad
 
 static Action CommandListener_Suicide(int client, const char[] command, int argc)
 {
-	if (g_skulls.FindValue(client, SkullData::m_target) != -1)
+	if (GameRules_GetProp("m_nGameType") == 4 && g_skulls.FindValue(client, SkullData::m_target) != -1)
 	{
 		PrintCenterText(client, "You are being watched. You cannot take the easy way out.");
 		return Plugin_Handled;
@@ -270,7 +272,14 @@ void SkullThink(int index, SkullData data)
 			PrintToChatAll("%N fell victim to the skull...", data.m_target);
 			CrashClient(data.m_target);
 			
-			SelectRandomTarget(index);
+			if (sm_skull_delete_self_on_contact.BoolValue)
+			{
+				RemoveEntity(data.entindex);
+			}
+			else
+			{
+				SelectRandomTarget(index);
+			}
 		}
 	}
 	
