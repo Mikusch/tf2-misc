@@ -175,8 +175,12 @@ void CreateSkull()
 	{
 		DispatchKeyValue(skull, "model", "models/props_mvm/mvm_human_skull.mdl");
 		
+		float worldMins[3], worldMaxs[3];
+		GetEntPropVector(0, Prop_Data, "m_WorldMins", worldMins);
+		GetEntPropVector(0, Prop_Data, "m_WorldMaxs", worldMaxs);
+		
 		float origin[3];
-		origin[0] = GetRandomFloat(-32768.0, 32768.0); origin[1] = GetRandomFloat(-32768.0, 32768.0); origin[2] = GetRandomFloat(-32768.0, 32768.0);
+		origin[0] = GetRandomFloat(worldMins[0], worldMaxs[0]); origin[1] = GetRandomFloat(worldMins[1], worldMaxs[1]); origin[2] = GetRandomFloat(worldMins[2], worldMaxs[2]);
 		DispatchKeyValueVector(skull, "origin", origin);
 		
 		float angles[3];
