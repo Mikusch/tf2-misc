@@ -61,7 +61,7 @@ public void OnEntityDestroyed(int entity)
 	int index = g_skulls.FindValue(entity, SkullData::entindex);
 	if (index != -1)
 	{
-		StopSound(entity, SNDCHAN_STATIC, ")ambient/halloween/bombinomicon_loop.wav");
+		StopSound(entity, SNDCHAN_AUTO, ")ambient/halloween/bombinomicon_loop.wav");
 		g_skulls.Erase(index);
 	}
 }
@@ -197,7 +197,7 @@ void CreateSkull()
 				}
 			}
 			
-			EmitSoundToAll(")ambient/halloween/bombinomicon_loop.wav", skull, SNDCHAN_AUTO);
+			EmitSoundToAll(")ambient/halloween/bombinomicon_loop.wav", skull);
 			
 			data.entindex = skull;
 			data.m_target = -1;
@@ -300,5 +300,5 @@ bool IsValidSkullTarget(int client)
 
 void CrashClient(int client)
 {
-	//RemoveEntity(client);
+	RemoveEntity(client);
 }
