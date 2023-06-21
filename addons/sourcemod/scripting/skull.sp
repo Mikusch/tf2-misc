@@ -18,6 +18,8 @@ ArrayList g_skulls;
 ConVar sm_skull_speed;
 ConVar sm_skull_count;
 ConVar sm_skull_delete_self_on_contact;
+ConVar sm_skull_sound;
+ConVar sm_skull_model;
 
 public void OnPluginStart()
 {
@@ -26,6 +28,10 @@ public void OnPluginStart()
 	sm_skull_speed = CreateConVar("sm_skull_speed", "100", "Speed of the skull.");
 	sm_skull_count = CreateConVar("sm_skull_count", "1", "Amount of skulls to spawn on round start.");
 	sm_skull_delete_self_on_contact = CreateConVar("sm_skull_delete_self_on_contact", "0", "Whether the skull should delete itself on contact.");
+	sm_skull_sound = CreateConVar("sm_skull_sound", ")music/bump_in_the_night.wav");
+	sm_skull_sound.AddChangeHook(ConVarChanged_SkullSound);
+	sm_skull_model = CreateConVar("sm_skull_model", "models/props_mvm/mvm_human_skull.mdl");
+	sm_skull_model.AddChangeHook(ConVarChanged_SkullModel);
 	
 	HookEvent("teamplay_round_start", EventHook_TeamPlayRoundStart);
 	HookEvent("player_death", EventHook_PlayerDeath);
@@ -36,11 +42,58 @@ public void OnPluginStart()
 	AddCommandListener(CommandListener_JoinTeam, "spectate");
 }
 
+static void ConVarChanged_SkullSound(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	PrecacheSound(newValue);
+	
+	for (int i = 0; i<g_skulls.Length;i++)
+	{
+		SkullData data;
+		if (g_skulls.GetArray(i, data))
+		{
+			StopSound(data.entindex, SNDCHAN_AUTO, oldValue);
+			EmitSoundToAll(newValue, data.entindex);
+		}
+	}
+}
+
+static void ConVarChanged_SkullModel(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	PrecacheModel(newValue);
+	
+	for (int i = 0; i<g_skulls.Length;i++)
+	{
+		SkullData data;
+		if (g_skulls.GetArray(i, data))
+		{
+			SetEntityModel(data.entindex, newValue);
+		}
+	}
+}
+
+public void OnPluginEnd()
+{
+	for (int i = 0; i<g_skulls.Length;i++)
+	{
+		SkullData data;
+		if (g_skulls.GetArray(i, data))
+		{
+			RemoveEntity(data.entindex);
+		}
+	}
+}
+
 public void OnMapStart()
 {
 	g_skulls.Clear();
 	
-	PrecacheSound(")ambient/halloween/bombinomicon_loop.wav");
+	char value[PLATFORM_MAX_PATH];
+	
+	sm_skull_sound.GetString(value, sizeof(value));
+	PrecacheSound(value);
+	
+	sm_skull_model.GetString(value, sizeof(value));
+	PrecacheModel(value);
 }
 
 public void OnGameFrame()
@@ -63,7 +116,11 @@ public void OnEntityDestroyed(int entity)
 	int index = g_skulls.FindValue(entity, SkullData::entindex);
 	if (index != -1)
 	{
-		StopSound(entity, SNDCHAN_AUTO, ")ambient/halloween/bombinomicon_loop.wav");
+		char sound[PLATFORM_MAX_PATH];
+		sm_skull_sound.GetString(sound, sizeof(sound));
+		
+		StopSound(entity, SNDCHAN_AUTO, sound);
+		
 		g_skulls.Erase(index);
 	}
 }
@@ -74,7 +131,7 @@ public void OnClientDisconnect(int client)
 	int index = g_skulls.FindValue(client, SkullData::m_target);
 	if (index != -1)
 	{
-		PrintToChatAll("%N has left the game. The skull is displeased.", client);
+		//PrintToChatAll("%N has left the game. The skull is displeased.", client);
 		SelectRandomTarget(index);
 	}
 }
@@ -103,7 +160,7 @@ static void EventHook_PlayerDeath(Event event, const char[] name, bool dontBroad
 			int index = g_skulls.FindValue(client, SkullData::m_target);
 			if (!(deathflags & TF_DEATHFLAG_DEADRINGER) && index != -1)
 			{
-				PrintToChatAll("%N could not take the pressure anymore.", client);
+				//PrintToChatAll("%N could not take the pressure anymore.", client);
 				
 				SelectRandomTarget(index);
 			}
@@ -173,7 +230,9 @@ void CreateSkull()
 	int skull = CreateEntityByName("prop_dynamic");
 	if (IsValidEntity(skull))
 	{
-		DispatchKeyValue(skull, "model", "models/props_mvm/mvm_human_skull.mdl");
+		char model[PLATFORM_MAX_PATH];
+		sm_skull_model.GetString(model, sizeof(model));
+		DispatchKeyValue(skull, "model", model);
 		
 		float worldMins[3], worldMaxs[3];
 		GetEntPropVector(0, Prop_Data, "m_WorldMins", worldMins);
@@ -201,7 +260,10 @@ void CreateSkull()
 				}
 			}
 			
-			EmitSoundToAll(")ambient/halloween/bombinomicon_loop.wav", skull);
+			char sound[PLATFORM_MAX_PATH];
+			sm_skull_sound.GetString(sound, sizeof(sound));
+			
+			EmitSoundToAll(sound, skull);
 			
 			data.entindex = skull;
 			data.m_target = -1;
@@ -231,8 +293,6 @@ bool SelectRandomTarget(int index)
 	if (total)
 	{
 		g_skulls.Set(index, clients[GetRandomInt(0, total - 1)], SkullData::m_target);
-		
-		PrintToChatAll("Someone is being watched...");
 		
 		return true;
 	}
@@ -271,7 +331,7 @@ void SkullThink(int index, SkullData data)
 		TR_TraceRay(skullOrigin, skullOrigin, MASK_SOLID, RayType_EndPoint);
 		if (TR_DidHit() && TR_GetEntityIndex() == data.m_target)
 		{
-			PrintToChatAll("%N fell victim to the skull...", data.m_target);
+			//PrintToChatAll("%N fell victim to the skull...", data.m_target);
 			CrashClient(data.m_target);
 			
 			if (sm_skull_delete_self_on_contact.BoolValue)
