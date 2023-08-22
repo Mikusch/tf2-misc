@@ -67,6 +67,15 @@ bool IsTauntSlot(int iSlot)
 		|| iSlot == LOADOUT_POSITION_TAUNT8;
 }
 
+public Plugin myinfo =
+{
+	name = "No Hats",
+	author = "Mikusch",
+	description = "Removes all cosmetics.",
+	version = "1.0.0",
+	url = "https://github.com/Mikusch"
+}
+
 public void OnPluginStart()
 {
 	HookEvent("post_inventory_application", EventHook_PostInventoryApplication);
