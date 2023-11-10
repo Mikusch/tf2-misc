@@ -1,0 +1,26 @@
+"Games"
+{
+	"tf"
+	{
+		"Signatures"
+		{
+			"CEconItemDefinition::BInitFromKV"
+			{
+				"linux"		"@_ZN19CEconItemDefinition11BInitFromKVEP9KeyValuesP10CUtlVectorI10CUtlString10CUtlMemoryIS3_iEE"
+			}
+		}
+		"MemPatches"
+		{
+			"CEconItemDefinition::BInitFromKV::DontParseAttributes"
+			{
+				"signature"	"CEconItemDefinition::BInitFromKV"
+				"linux"
+				{
+					"offset"	"1633h"
+					"verify"	"\x85\xC0"
+					"patch"		"\x31\xC0"
+				}
+			}
+		}
+	}
+}

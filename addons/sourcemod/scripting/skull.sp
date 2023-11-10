@@ -371,5 +371,5 @@ bool IsValidSkullTarget(int client)
 
 void CrashClient(int client)
 {
-	RemoveEntity(client);
+	KickClient(client, ":skull:");
 }
